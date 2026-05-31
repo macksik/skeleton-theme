@@ -16,9 +16,15 @@
         "color_option_name": "Color",
         "show_sale_badge": true
       }
+    },
+    "main": {
+      "type": "hello-world",
+      "disabled": true,
+      "settings": {}
     }
   },
   "order": [
-    "product_card"
+    "product_card",
+    "main"
   ]
 }
