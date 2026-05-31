@@ -13,6 +13,7 @@
       "type": "product-card-showcase",
       "settings": {
         "heading": "Featured product",
+        "product": "plain-t-shirt-2",
         "color_option_name": "Color",
         "show_sale_badge": true
       }
