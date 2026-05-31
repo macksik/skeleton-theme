@@ -9,12 +9,16 @@
  */
 {
   "sections": {
-    "main": {
-      "type": "hello-world",
-      "settings": {}
+    "product_card": {
+      "type": "product-card-showcase",
+      "settings": {
+        "heading": "Featured product",
+        "color_option_name": "Color",
+        "show_sale_badge": true
+      }
     }
   },
   "order": [
-    "main"
+    "product_card"
   ]
 }

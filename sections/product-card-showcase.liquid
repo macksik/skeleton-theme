@@ -1,0 +1,478 @@
+{% comment %}
+  Product card — Liquid markup + Section Rendering API (?sections=&option_values=).
+  URL params via snippets/data-url-parameters.liquid (content_for_header).
+{% endcomment %}
+
+<script src="{{ 'product-card-showcase.js' | asset_url }}" defer></script>
+
+{% liquid
+  assign picked_product = section.settings.product
+  assign requested_option_value_id = nil
+  assign color_option_name = section.settings.color_option_name | default: 'Color'
+  assign color_option = nil
+  assign card_product = picked_product
+  assign card_variant = nil
+  assign card_url = nil
+
+  if picked_product == blank
+    capture product_handle_param
+      render 'data-url-parameters', key: 'product_handle'
+    endcapture
+    assign product_handle_param = product_handle_param | strip
+
+    if product_handle_param != blank
+      assign picked_product = all_products[product_handle_param]
+    endif
+
+    if picked_product == blank and product_handle_param != blank
+      for product in collections.all.products
+        if product.handle == product_handle_param
+          assign picked_product = product
+          break
+        endif
+      endfor
+    endif
+  endif
+
+  if picked_product != blank
+    assign card_variant = picked_product.selected_or_first_available_variant
+
+    for option in picked_product.options_with_values
+      assign option_name_downcase = option.name | downcase
+      assign setting_name_downcase = color_option_name | downcase
+      if option_name_downcase == setting_name_downcase
+        assign color_option = option
+        break
+      endif
+    endfor
+
+    if color_option != blank
+      capture option_values_param
+        render 'data-url-parameters', key: 'option_values'
+      endcapture
+      assign option_values_param = option_values_param | strip
+
+      if option_values_param == blank
+        assign option_values_param = request.params.option_values | default: request.query_parameters.option_values
+      endif
+
+      if option_values_param != blank
+        assign requested_option_value_id = option_values_param | split: ',' | first | plus: 0
+      endif
+
+      for option_value in color_option.values
+        assign is_selected = option_value.selected
+
+        if requested_option_value_id != nil and option_value.id == requested_option_value_id
+          assign is_selected = true
+        endif
+
+        if is_selected
+          if option_value.variant != blank
+            assign card_variant = option_value.variant
+          endif
+          if option_value.product_url != blank
+            assign card_url = option_value.product_url
+            assign card_product = card_variant.product
+          endif
+          break
+        endif
+      endfor
+    endif
+
+    if card_url == blank
+      assign card_url = card_product.url
+      if card_variant != blank
+        assign card_url = card_url | append: '?variant=' | append: card_variant.id
+      endif
+    endif
+  endif
+
+  assign primary_image = card_variant.featured_image | default: card_product.featured_image
+  assign secondary_image = nil
+  assign variant_media_index = 0
+
+  if card_product != blank and card_variant != blank
+    for media in card_product.media
+      assign media_for_variant = false
+      for media_variant in media.variants
+        if media_variant.id == card_variant.id
+          assign media_for_variant = true
+          break
+        endif
+      endfor
+      if media_for_variant
+        assign variant_media_index = variant_media_index | plus: 1
+        if variant_media_index == 2
+          assign secondary_image = media.preview_image
+          break
+        endif
+      endif
+    endfor
+
+    comment
+      Fallback: 2nd image in product media (common for Combined Listings child products).
+    endcomment
+    if secondary_image == blank and card_product.media.size > 1
+      assign media_position = 0
+      for media in card_product.media
+        assign media_position = media_position | plus: 1
+        if media_position == 2
+          assign secondary_image = media.preview_image
+          break
+        endif
+      endfor
+    endif
+  endif
+
+  assign on_sale = false
+  if card_variant.compare_at_price != blank and card_variant.compare_at_price > card_variant.price
+    assign on_sale = true
+  endif
+%}
+
+<section
+  id="shopify-section-{{ section.id }}"
+  class="product-card-showcase"
+  data-product-card-section
+  {{ section.shopify_attributes }}
+>
+  <div class="product-card-showcase__container">
+    {% if section.settings.heading != blank %}
+      <h2 class="product-card-showcase__heading">
+        {{ section.settings.heading }}
+      </h2>
+    {% endif %}
+
+    <product-card-showcase
+      class="product-card-showcase__card-wrap"
+      data-section-id="{{ section.id }}"
+      {% if picked_product != blank %}
+        data-product-handle="{{ picked_product.handle }}"
+        data-product-url="{{ picked_product.url }}"
+      {% endif %}
+    >
+      {% render 'product-card-showcase-card',
+        picked_product: picked_product,
+        card_product: card_product,
+        card_variant: card_variant,
+        card_url: card_url,
+        color_option: color_option,
+        primary_image: primary_image,
+        secondary_image: secondary_image,
+        on_sale: on_sale,
+        requested_option_value_id: requested_option_value_id,
+        section: section
+      %}
+    </product-card-showcase>
+  </div>
+</section>
+
+{% stylesheet %}
+  .product-card-showcase {
+    width: 100%;
+    padding: 3rem 0;
+  }
+
+  .product-card-showcase__container {
+    display: grid;
+    grid-template-columns: var(--content-grid);
+    width: 100%;
+  }
+
+  .product-card-showcase__heading,
+  .product-card-showcase__card-wrap {
+    grid-column: 2;
+    padding-inline: 24px;
+  }
+
+  .product-card-showcase__heading {
+    margin: 0 0 2rem;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .product-card-showcase__card-wrap {
+    display: flex;
+    justify-content: center;
+  }
+
+  product-card-showcase.is-loading .product-card,
+  .product-card-showcase__card-wrap.is-loading .product-card {
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  product-card-showcase {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    max-width: 24rem;
+  }
+
+  .product-card {
+    width: 100%;
+    max-width: 24rem;
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    background: #fff;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  }
+
+  .product-card__empty {
+    margin: 0;
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.875rem;
+  }
+
+  .product-card__media-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .product-card__media {
+    position: relative;
+    margin-bottom: 0.75rem;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    background: #fff;
+    cursor: pointer;
+  }
+
+  .product-card__badge {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 10;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid #ef4444;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #ef4444;
+    background: #fff;
+    pointer-events: none;
+  }
+
+  .product-card__image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .product-card__media--has-secondary .product-card__image--primary {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+    transition: opacity 0.35s ease;
+  }
+
+  .product-card__media:not(.product-card__media--has-secondary) .product-card__image--primary {
+    display: block;
+  }
+
+  .product-card__image--secondary {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+
+  .product-card__media--has-secondary .product-card__image--primary,
+  .product-card__media--has-secondary .product-card__image--secondary {
+    pointer-events: none;
+  }
+
+  .product-card__media-link:hover .product-card__media--has-secondary .product-card__image--primary,
+  .product-card__media--has-secondary:hover .product-card__image--primary {
+    opacity: 0;
+  }
+
+  .product-card__media-link:hover .product-card__media--has-secondary .product-card__image--secondary,
+  .product-card__media--has-secondary:hover .product-card__image--secondary {
+    opacity: 1;
+  }
+
+  .product-card__media-link:hover .product-card__media:not(.product-card__media--has-secondary) .product-card__image--primary,
+  .product-card__media:not(.product-card__media--has-secondary):hover .product-card__image--primary {
+    transform: scale(1.02);
+  }
+
+  @media (hover: none) {
+    .product-card__media--has-secondary .product-card__image--secondary {
+      display: none;
+    }
+  }
+
+  .product-card__swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .product-card__swatch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .product-card__swatch:focus-visible {
+    outline: 2px solid #1e3a8a;
+    outline-offset: 2px;
+  }
+
+  .product-card__swatch-dot {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 9999px;
+    background-color: var(--product-card-swatch-color, #d4d4d4);
+    background-image: var(--product-card-swatch-image, none);
+    background-size: cover;
+    background-position: center;
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+  }
+
+  .product-card__swatch.is-active .product-card__swatch-dot {
+    box-shadow:
+      0 0 0 2px #fff,
+      0 0 0 3px #1e3a8a;
+  }
+
+  .product-card__swatch:not(.is-active) .product-card__swatch-dot {
+    box-shadow:
+      inset 0 0 0 1px rgb(0 0 0 / 0.08),
+      0 0 0 1px #e5e7eb;
+  }
+
+  .product-card__swatch.is-unavailable {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  /* Fallback swatch colors when Shopify swatch.color is not set */
+  .product-card__swatch--orange { --product-card-swatch-color: #f97316; }
+  .product-card__swatch--red { --product-card-swatch-color: #ef4444; }
+  .product-card__swatch--green { --product-card-swatch-color: #166534; }
+  .product-card__swatch--dark-green { --product-card-swatch-color: #14532d; }
+  .product-card__swatch--blue { --product-card-swatch-color: #2563eb; }
+  .product-card__swatch--navy { --product-card-swatch-color: #1e3a8a; }
+  .product-card__swatch--yellow { --product-card-swatch-color: #fde047; }
+  .product-card__swatch--pink { --product-card-swatch-color: #fbcfe8; }
+  .product-card__swatch--black { --product-card-swatch-color: #171717; }
+  .product-card__swatch--white { --product-card-swatch-color: #f5f5f5; }
+  .product-card__swatch--gray,
+  .product-card__swatch--grey { --product-card-swatch-color: #9ca3af; }
+  .product-card__swatch--purple { --product-card-swatch-color: #7c3aed; }
+  .product-card__swatch--brown { --product-card-swatch-color: #78350f; }
+
+  .product-card__details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .product-card__vendor {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #374151;
+  }
+
+  .product-card__title {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .product-card__title a {
+    color: #1e3a8a;
+    text-decoration: none;
+  }
+
+  .product-card__title a:hover {
+    text-decoration: underline;
+  }
+
+  .product-card__price {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .product-card__price-compare {
+    color: #6b7280;
+    text-decoration: line-through;
+  }
+
+  .product-card__price-sale {
+    font-weight: 700;
+    color: #dc2626;
+  }
+
+  .product-card__price-regular {
+    font-weight: 700;
+    color: #111827;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:sections.product_card_showcase.name",
+  "tag": "section",
+  "class": "product-card-showcase-section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:sections.product_card_showcase.settings.heading",
+      "default": "Featured product"
+    },
+    {
+      "type": "product",
+      "id": "product",
+      "label": "t:sections.product_card_showcase.settings.product"
+    },
+    {
+      "type": "text",
+      "id": "color_option_name",
+      "label": "t:sections.product_card_showcase.settings.color_option_name",
+      "default": "Color",
+      "info": "t:sections.product_card_showcase.settings.color_option_name_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_sale_badge",
+      "label": "t:sections.product_card_showcase.settings.show_sale_badge",
+      "default": true
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:sections.product_card_showcase.name",
+      "category": "t:sections.product_card_showcase.category"
+    }
+  ]
+}
+{% endschema %}

@@ -72,6 +72,19 @@
       "title": "Title",
       "subtitle": "Subtitle",
       "normal": "Normal text"
-    },
+    }
+  },
+  "sections": {
+    "product_card_showcase": {
+      "name": "Product card",
+      "category": "Products",
+      "settings": {
+        "heading": "Heading",
+        "product": "Product",
+        "color_option_name": "Color option name",
+        "color_option_name_info": "Must match the parent Combined Listing option (e.g. Color). Pick the parent product in settings.",
+        "show_sale_badge": "Show sale badge when on sale"
+      }
+    }
   }
 }

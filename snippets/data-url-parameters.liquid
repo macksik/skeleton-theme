@@ -1,0 +1,54 @@
+{% doc %}
+  Reads query string parameters from the current page URL via content_for_header.
+
+  @param {string} [key] - Parameter name to return a single value.
+
+  @example
+  {% capture option_values_param %}
+    {% render 'data-url-parameters', key: 'option_values' %}
+  {% endcapture %}
+{% enddoc %}
+
+{% comment %}
+  Retrieves parameters from the URL
+
+  Accepts:
+    - key: {String} Pass a key to retrieve certain data
+
+  Usage:
+    {% render 'data-url-parameters', key: 'handle' %}
+{% endcomment %}
+
+{%- liquid
+  # theme-check-disable
+  capture content_for_query_string
+    echo content_for_header
+  endcapture
+  # theme-check-enable
+
+  assign page_url = content_for_query_string | split: '"pageurl":"' | last | split: '"' | first | split: '.myshopify.com' | last | replace: '\/', '/' | replace: '%20', ' ' | replace: '\u0026', '&'
+
+  assign page_query_string = page_url | split: '/' | last
+  assign split_string = page_query_string | split: '?'
+  assign parameters = split_string[1] | downcase | split: '&'
+
+  if key != blank
+    assign parameter_found = false
+    assign key_downcase = key | downcase
+
+    for parameter in parameters
+      assign parameter_arr = parameter | split: '='
+      assign parameter_property = parameter_arr[0] | downcase
+      if parameter_property == key_downcase and parameter_found == false
+        assign parameter_found = parameter_arr[1]
+      endif
+    endfor
+
+    if parameter_found
+      echo parameter_found | url_decode
+    endif
+  else
+    assign parameters_joined = parameters | join: ','
+    echo parameters_joined
+  endif
+-%}

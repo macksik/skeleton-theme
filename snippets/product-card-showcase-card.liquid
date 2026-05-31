@@ -1,0 +1,115 @@
+{% comment %}
+  Product card markup inside <product-card-showcase> (light DOM web component).
+  Parent assigns: picked_product, card_product, card_variant, card_url,
+  color_option, primary_image, secondary_image, on_sale, requested_option_value_id, section
+{% endcomment %}
+
+{% if picked_product == blank %}
+  <p class="product-card__empty">
+    {{ 'sections.product_card_showcase.empty' | t }}
+  </p>
+{% else %}
+  <article class="product-card">
+    <a
+      href="{{ card_url }}"
+      class="product-card__media-link"
+      data-product-card-media-link
+    >
+      <div
+        class="product-card__media{% if secondary_image != blank %} product-card__media--has-secondary{% endif %}"
+        data-product-card-media
+      >
+        {% if section.settings.show_sale_badge and on_sale %}
+          <span class="product-card__badge">{{ 'sections.product_card_showcase.on_sale' | t }}</span>
+        {% endif %}
+
+        {% if primary_image != blank %}
+          {{
+            primary_image
+            | image_url: width: 800
+            | image_tag:
+              class: 'product-card__image product-card__image--primary',
+              loading: 'lazy',
+              widths: '400, 600, 800',
+              sizes: '(min-width: 750px) 400px, 100vw',
+              alt: card_product.title
+          }}
+        {% else %}
+          {{ 'product-1' | placeholder_svg_tag: 'product-card__image product-card__image--primary' }}
+        {% endif %}
+
+        {% if secondary_image != blank %}
+          {{
+            secondary_image
+            | image_url: width: 800
+            | image_tag:
+              class: 'product-card__image product-card__image--secondary',
+              loading: 'lazy',
+              widths: '400, 600, 800',
+              sizes: '(min-width: 750px) 400px, 100vw',
+              alt: ''
+          }}
+        {% endif %}
+      </div>
+    </a>
+
+    {% if color_option != blank %}
+      <div class="product-card__swatches" role="list" data-product-card-swatches>
+        {% for option_value in color_option.values %}
+          {% liquid
+            assign swatch_handle = option_value.name | handleize
+            assign swatch_style = ''
+            if option_value.swatch.color != blank
+              assign swatch_style = '--product-card-swatch-color: ' | append: option_value.swatch.color | append: ';'
+            endif
+            if option_value.swatch.image != blank
+              assign swatch_image_url = option_value.swatch.image | image_url: width: 80
+              assign swatch_style = swatch_style | append: ' --product-card-swatch-image: url(' | append: swatch_image_url | append: ');'
+            endif
+
+            assign is_active = option_value.selected
+            if requested_option_value_id != nil and option_value.id == requested_option_value_id
+              assign is_active = true
+            endif
+          %}
+
+          <button
+            type="button"
+            class="product-card__swatch product-card__swatch--{{ swatch_handle }}{% if is_active %} is-active{% endif %}{% unless option_value.available %} is-unavailable{% endunless %}"
+            data-variant-swatch
+            data-option-value-id="{{ option_value.id }}"
+            {% if option_value.product_url != blank %}
+              data-product-url="{{ option_value.product_url }}"
+            {% endif %}
+            aria-label="{{ option_value.name }}"
+            aria-pressed="{{ is_active }}"
+            {% if swatch_style != blank %}
+              style="{{ swatch_style }}"
+            {% endif %}
+            {% unless option_value.available %}
+              disabled
+            {% endunless %}
+            role="listitem"
+          >
+            <span class="product-card__swatch-dot"></span>
+          </button>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="product-card__details">
+      <p class="product-card__vendor">{{ card_product.vendor }}</p>
+      <h3 class="product-card__title">
+        <a href="{{ card_url }}">{{ card_product.title }}</a>
+      </h3>
+      <div class="product-card__price" data-product-card-price>
+        {% if on_sale %}
+          <span class="product-card__price-compare">{{ card_variant.compare_at_price | money }}</span>
+          <span class="product-card__price-sale">{{ card_variant.price | money }}</span>
+        {% else %}
+          <span class="product-card__price-regular">{{ card_variant.price | money }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </article>
+{% endif %}
